@@ -9,3 +9,7 @@ airflow-webserver.pid
 webserver_config.py
 airflow.cfg
 airflow.db
+# Agent artifacts only
+.cursor/plans/
+**/agent-transcripts/
+**/mcps/
