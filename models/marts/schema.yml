@@ -1,0 +1,10 @@
+version: 2
+
+models:
+  - name: fct_coin_daily_metrics
+    description: Gold-layer metrics placeholder model for crypto analytics.
+    columns:
+      - name: placeholder_id
+        description: Placeholder identifier propagated from staging.
+        tests:
+          - not_null

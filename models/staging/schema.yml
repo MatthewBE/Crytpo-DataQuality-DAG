@@ -1,0 +1,10 @@
+version: 2
+
+models:
+  - name: stg_coingecko_history
+    description: Staging placeholder model for CoinGecko history data.
+    columns:
+      - name: placeholder_id
+        description: Placeholder identifier until ingestion is wired.
+        tests:
+          - not_null
