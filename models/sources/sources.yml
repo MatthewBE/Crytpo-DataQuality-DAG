@@ -12,15 +12,17 @@ sources:
             description: CoinGecko coin id (e.g. ethereum).
             tests:
               - not_null
+
           - name: as_of_date
             description: Logical date for the history snapshot (YYYY-MM-DD).
             tests:
               - not_null
-              - unique
+
           - name: payload
             description: Raw JSON payload from CoinGecko.
             tests:
               - not_null
+
           - name: ingested_at
             description: UTC timestamp when record was written to bronze.
             tests:

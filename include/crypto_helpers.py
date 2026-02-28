@@ -16,14 +16,14 @@ BUCKET_NAMES = ["crypto-bronze", "crypto-silver"]
 
 
 def _get_previous_thirty_days_of_dates(ds: str) -> list[str]:
-    """
-    This function returns a list of the previous thirty days of dates 
-    based on the {ds} in airflow to not mismatch the times when the DAG runs
-    """
-    # Parsing the date in Airflow style to crate a list of string with dates
-    start_date = pendulum.parse(ds)
+    ds_date = pendulum.parse(ds).date()
+    yesterday = pendulum.now("UTC").subtract(days=1).date()
+
+    # Cap future ds to yesterday
+    anchor = ds_date if ds_date <= yesterday else yesterday
+
     return [
-        start_date.subtract(days=i).format("YYYY-MM-DD")
+        anchor.subtract(days=i).format("YYYY-MM-DD")
         for i in range(1, 31)
     ]
 
@@ -82,8 +82,14 @@ def backfill_crypto_data_to_bronze(
     # Pull API key from Airflow HTTP connection.
     conn = BaseHook.get_connection(conn_id)
     extra = conn.extra_dejson or {}
-    api_key = extra.get("x_cg_pro_api_key")
-    headers = {"x-cg-pro-api-key": api_key} if api_key else {}
+
+    api_key = (
+        extra.get("x_cg_demo_api_key")
+        or extra.get("api_key")
+        or conn.password
+    )
+
+    headers = {"x-cg-demo-api-key": api_key} if api_key else {}
 
     s3_hook = S3Hook(aws_conn_id=aws_conn_id)
     written_keys: list[str] = []
@@ -98,7 +104,8 @@ def backfill_crypto_data_to_bronze(
         response.raise_for_status()
         data = response.json()
 
-        key = f"bronze/coingecko/coin={coin_id}/date={date}/raw.json"
+        partition_date = pendulum.from_format(date, "YYYY-MM-DD")
+        key = f"bronze/coingecko/coin={coin_id}/date={partition_date}/raw.json"
         s3_hook.load_string(
             string_data=json.dumps(data),
             bucket_name=bucket_name,

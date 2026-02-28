@@ -4,58 +4,45 @@
 ## Need to make sure that the task runs only once at start up of the Docker container and not on every DAG run
 """
 
-
-from airflow.sdk import Asset, dag, task
+from airflow.sdk import Asset, dag, task, get_current_context
+from airflow.models import Variable
 from pendulum import datetime
-from airflow.providers.amazon.aws.hooks.s3 import S3Hook
-from botocore.exceptions import ClientError
 import include.crypto_helpers as ch
 
-BUCKET_NAMES = ["crypto-bronze", "crypto-silver"]
-
- 
-# Define the basic parameters of the DAG, like schedule and start_date
 @dag(
     start_date=datetime(2026, 2, 26),
     schedule="@once",
-    doc_md=__doc__,
+    catchup=False,
+    max_active_runs=1,
     default_args={"owner": "Matthew", "retries": 3},
     tags=["crypto_backfill"],
-    max_active_runs=1,
-    catchup=False,
+    doc_md=__doc__,
 )
 def crypto_backfill():
-    @task
-    def ensure_moto_bucket():
-    hook = S3Hook(aws_conn_id="aws_localstack")
-    client = hook.get_conn()
+    coin_id = Variable.get("crypto_default_coin_id", default_var="ethereum")
 
-    for bucket_name in BUCKET_NAMES:
-        try:
-            client.head_bucket(Bucket=bucket_name)
-        except ClientError as e:
-            code = e.response.get("Error", {}).get("Code", "")
-            if code in {"404", "NoSuchBucket", "NotFound"}:
-                client.create_bucket(Bucket=bucket_name)
-            else:
-                raise e
-    # Define tasks
-    @task( outlets=[Asset("crypto_backfill_complete")] )
+    @task(outlets=[Asset("crypto_backfill_complete")])
     def backfill_crypto_to_bronze():
         ds = get_current_context()["ds"]
-        ch.backfill_crypto_data_to_bronze(coin_id, ds)
+        return ch.backfill_crypto_data_to_bronze(coin_id=coin_id, ds=ds)
 
-    @task()
+    @task
     def validate_bronze_backfill():
         pass
 
-    @task()
+    @task
     def backfill_crypto_to_silver():
-        ds = get_current_context()["ds"]
-        ch.backfill_crypto_data_to_silver(coin_id, ds)
+        return ch.backfill_crypto_data_to_silver(coin_id=coin_id)
 
-    @task()
+    @task
     def validate_silver_backfill():
         pass
 
-    
+    bronze = backfill_crypto_to_bronze()
+    bronze_ok = validate_bronze_backfill()
+    silver = backfill_crypto_to_silver()
+    silver_ok = validate_silver_backfill()
+
+    bronze >> bronze_ok >> silver >> silver_ok
+
+crypto_backfill()

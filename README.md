@@ -5,16 +5,17 @@ Downloading from the Coingecko API, into Bronze /Silver Moto S3 mock and loading
 
 Run these commands from the repository root:
 
-1. Add your API key to `.env`:
-   - `COINGECKO_API_KEY=your_key_here`
-2. Start the local Astro environment:
-   - `astro dev start`
-3. Bootstrap the CoinGecko Airflow connection from your env var:
-   - `chmod +x scripts/bootstrap_connections.sh`
-   - `source .env`
-   - `./scripts/bootstrap_connections.sh`
+1. Create local env file from template:
+   - `cp .env.example .env`
+2. Set your CoinGecko demo API key in `.env` by editing:
+   - `AIRFLOW_CONN_COINGECKO_API=http://:@api.coingecko.com?extra__http__x_cg_demo_api_key=<YOUR_DEMO_API_KEY>`
+3. Run the clean install/bootstrap entrypoint:
+   - `bash scripts/bootstrap_connections.sh`
+4. Optional: trigger setup + backfill in one command:
+   - `bash scripts/bootstrap_connections.sh --with-backfill`
 
-After this, open Airflow UI at `http://localhost:8080` and verify `coingecko_api` under `Admin` -> `Connections`.
+After this, Airflow reads `AIRFLOW_CONN_COINGECKO_API` automatically from `.env`.
+No manual UI connection edits are required.
 
 ## Infrastructure baseline
 
@@ -22,13 +23,19 @@ After this, open Airflow UI at `http://localhost:8080` and verify `coingecko_api
 - Object storage (Bronze/Silver): LocalStack S3 (`docker-compose.override.yml`)
 - Warehouse (Gold): DuckDB
 - Transformation/testing/lineage: dbt (`dbt_project.yml` and `models/`)
+- dbt profile resolution: container-native via `DBT_PROFILES_DIR=/usr/local/airflow`
 
 ## Local Airflow connection bootstrap
 
 Connections and variables for local development are defined in `airflow_settings.yaml`:
 
 - `aws_localstack` (AWS) -> LocalStack endpoint for S3
-- `coingecko_api` (HTTP) -> CoinGecko base host
 - `crypto_default_coin_id` variable -> default `ethereum`
 
-`coingecko_api` credentials can be loaded via `scripts/bootstrap_connections.sh` using `COINGECKO_API_KEY` from `.env`.
+`coingecko_api` is sourced from `AIRFLOW_CONN_COINGECKO_API` in `.env` (env-only strategy).
+The bootstrap script starts Astro, then triggers `crypto_setup` so required infra is created consistently.
+
+## dbt in container
+
+- `profiles.yml` is stored at the repo root and mounted to `/usr/local/airflow/profiles.yml` in Astro containers.
+- `DBT_PROFILES_DIR` is set in `Dockerfile` so dbt resolves profiles inside the container (no host `~/.dbt` required).

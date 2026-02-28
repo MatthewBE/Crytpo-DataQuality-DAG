@@ -1,0 +1,7 @@
+crypto_dq:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: /usr/local/airflow/warehouse_ddb/crypto.duckdb
+      threads: 4
