@@ -1,40 +1,144 @@
 version: 2
 
 models:
-  - name: stg_coingecko_history
-    description: Staging model built directly from bronze JSON files in S3 (Pattern B).
+  - name: stg_coingecko_bronze
+    description: >
+      Bronze-stage normalized daily CoinGecko records derived from raw Bronze JSON files.
+      One row per coin_id and as_of_date.
+    meta:
+      ai_contract_version: 1
+      layer: bronze_stage
+      owner_team: data-eng
+      grain: "1 row per coin_id, as_of_date"
+      source_system: coingecko
+      pii: false
+      refresh_cadence: daily
+      downstream_models:
+        - stg_coingecko_silver
+        - fct_coin_daily_metrics
+    tests:
+      - unique:
+          column_name: "coin_id || '|' || cast(as_of_date as varchar)"
     columns:
       - name: coin_id
-        description: Coin id parsed from bronze file path.
-        tests:
-          - not_null
+        description: CoinGecko coin identifier (for example, ethereum).
+        tests: [not_null]
+        meta:
+          semantic_type: identifier
+          nullable: false
+          example_values: ["ethereum", "bitcoin"]
 
       - name: as_of_date
-        description: Snapshot date parsed from bronze file path.
-        tests:
-          - not_null
+        description: Logical market snapshot date in UTC.
+        tests: [not_null]
+        meta:
+          semantic_type: date
+          nullable: false
+          timezone: UTC
+          format: YYYY-MM-DD
 
       - name: ingested_at
-        description: Timestamp assigned during staging model execution.
-        tests:
-          - not_null
+        description: Timestamp when data was ingested into staging.
+        tests: [not_null]
+        meta:
+          semantic_type: timestamp
+          nullable: false
+          timezone: UTC
 
       - name: price_usd
-        description: USD price extracted from payload.market_data.current_price.usd.
-        tests:
-          - not_null
+        description: Asset price in USD at snapshot date.
+        tests: [not_null]
+        meta:
+          semantic_type: currency_usd
+          unit: USD
+          nullable: false
+          valid_min: 0
 
       - name: market_cap_usd
-        description: USD market cap extracted from payload.market_data.market_cap.usd.
-        tests:
-          - not_null
+        description: Asset market capitalization in USD.
+        tests: [not_null]
+        meta:
+          semantic_type: currency_usd
+          unit: USD
+          nullable: false
+          valid_min: 0
 
       - name: volume_usd
-        description: USD volume extracted from payload.market_data.total_volume.usd.
-        tests:
-          - not_null
+        description: Asset traded volume in USD.
+        tests: [not_null]
+        meta:
+          semantic_type: currency_usd
+          unit: USD
+          nullable: false
+          valid_min: 0
 
       - name: payload
-        description: Raw JSON payload from bronze object.
-        tests:
-          - not_null
+        description: Raw market_data JSON fragment retained for auditability.
+        tests: [not_null]
+        meta:
+          semantic_type: json
+          nullable: false
+          retention_purpose: audit
+
+  - name: stg_coingecko_silver
+    description: >
+      Silver-stage cleaned and typed daily metrics read from partitioned Silver parquet.
+      Serves as the Gold model input contract.
+    meta:
+      ai_contract_version: 1
+      layer: silver_stage
+      owner_team: data-eng
+      grain: "1 row per coin_id, as_of_date"
+      pii: false
+      refresh_cadence: daily
+      upstream_models:
+        - stg_coingecko_bronze
+      downstream_models:
+        - fct_coin_daily_metrics
+    tests:
+      - unique:
+          column_name: "coin_id || '|' || cast(as_of_date as varchar)"
+    columns:
+      - name: coin_id
+        description: CoinGecko coin identifier.
+        tests: [not_null]
+        meta:
+          semantic_type: identifier
+          nullable: false
+
+      - name: as_of_date
+        description: Logical market snapshot date in UTC.
+        tests: [not_null]
+        meta:
+          semantic_type: date
+          nullable: false
+          timezone: UTC
+          format: YYYY-MM-DD
+
+      - name: price_usd
+        description: Cleaned asset price in USD.
+        tests: [not_null]
+        meta:
+          semantic_type: currency_usd
+          unit: USD
+          nullable: false
+          valid_min: 0
+          business_rule: "non-negative"
+
+      - name: market_cap_usd
+        description: Cleaned market capitalization in USD.
+        tests: [not_null]
+        meta:
+          semantic_type: currency_usd
+          unit: USD
+          nullable: false
+          valid_min: 0
+
+      - name: volume_usd
+        description: Cleaned traded volume in USD.
+        tests: [not_null]
+        meta:
+          semantic_type: currency_usd
+          unit: USD
+          nullable: false
+          valid_min: 0

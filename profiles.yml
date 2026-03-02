@@ -5,3 +5,12 @@ crypto_dq:
       type: duckdb
       path: /usr/local/airflow/warehouse_ddb/crypto.duckdb
       threads: 4
+      extensions:
+        - httpfs
+      settings:
+        s3_region: us-east-1
+        s3_access_key_id: test
+        s3_secret_access_key: test
+        s3_endpoint: 172.17.0.1:4566
+        s3_url_style: path
+        s3_use_ssl: false

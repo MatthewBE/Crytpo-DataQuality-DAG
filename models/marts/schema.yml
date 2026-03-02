@@ -2,9 +2,58 @@ version: 2
 
 models:
   - name: fct_coin_daily_metrics
-    description: Gold-layer metrics placeholder model for crypto analytics.
+    description: >
+      Gold fact table containing daily coin market metrics for analytics and dashboards.
+      Incrementally updated from Silver staging.
+    meta:
+      ai_contract_version: 1
+      layer: gold_mart
+      owner_team: data-eng
+      grain: "1 row per coin_id, as_of_date"
+      pii: false
+      refresh_cadence: daily
+      sla: "available by 07:00 UTC"
+      upstream_models:
+        - stg_coingecko_silver
+      consumers:
+        - bi_dashboards
+        - analytics_queries
+    tests:
+      - unique:
+          column_name: "coin_id || '|' || cast(as_of_date as varchar)"
     columns:
-      - name: placeholder_id
-        description: Placeholder identifier propagated from staging.
-        tests:
-          - not_null
+      - name: coin_id
+        description: CoinGecko coin identifier.
+        tests: [not_null]
+        meta:
+          semantic_type: identifier
+          nullable: false
+
+      - name: as_of_date
+        description: Daily metric date in UTC.
+        tests: [not_null]
+        meta:
+          semantic_type: date
+          nullable: false
+          timezone: UTC
+
+      - name: price_usd
+        description: Gold-layer USD price metric.
+        meta:
+          semantic_type: currency_usd
+          unit: USD
+          valid_min: 0
+
+      - name: market_cap_usd
+        description: Gold-layer USD market cap metric.
+        meta:
+          semantic_type: currency_usd
+          unit: USD
+          valid_min: 0
+
+      - name: volume_usd
+        description: Gold-layer USD volume metric.
+        meta:
+          semantic_type: currency_usd
+          unit: USD
+          valid_min: 0

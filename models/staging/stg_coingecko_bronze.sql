@@ -10,9 +10,9 @@ select
     cast(regexp_extract(filename, 'date=([0-9]{4}-[0-9]{2}-[0-9]{2})', 1) as date) as as_of_date,
     current_timestamp as ingested_at,
 
-    cast(json_extract(raw.json, '$.market_data.current_price.usd') as double) as price_usd,
-    cast(json_extract(raw.json, '$.market_data.market_cap.usd') as double) as market_cap_usd,
-    cast(json_extract(raw.json, '$.market_data.total_volume.usd') as double) as volume_usd,
+    cast(raw.market_data.current_price.usd as double) as price_usd,
+    cast(raw.market_data.market_cap.usd as double) as market_cap_usd,
+    cast(raw.market_data.total_volume.usd as double) as volume_usd,
 
-    raw.json as payload
+    to_json(raw.market_data) as payload
 from raw
