@@ -24,6 +24,7 @@ No manual UI connection edits are required.
 - Warehouse (Gold): DuckDB
 - Transformation/testing/lineage: dbt (`dbt_project.yml` and `models/`)
 - dbt profile resolution: container-native via `DBT_PROFILES_DIR=/usr/local/airflow`
+- Reporting UI: Streamlit app at `apps/streamlit/app.py` (served on `http://localhost:8501`)
 
 ## Local Airflow connection bootstrap
 
@@ -34,8 +35,16 @@ Connections and variables for local development are defined in `airflow_settings
 
 `coingecko_api` is sourced from `AIRFLOW_CONN_COINGECKO_API` in `.env` (env-only strategy).
 The bootstrap script starts Astro, then triggers `crypto_setup` so required infra is created consistently.
+With `--with-backfill`, the script triggers `get_crypto_daily_data` in backfill mode via DAG conf:
+`{"run_backfill": true, "backfill_days": 30}`.
 
 ## dbt in container
 
 - `profiles.yml` is stored at the repo root and mounted to `/usr/local/airflow/profiles.yml` in Astro containers.
 - `DBT_PROFILES_DIR` is set in `Dockerfile` so dbt resolves profiles inside the container (no host `~/.dbt` required).
+
+## Streamlit service
+
+- Streamlit runs as a separate Docker service defined in `docker-compose.override.yml`.
+- App entrypoint: `apps/streamlit/app.py`
+- URL: `http://localhost:8501`

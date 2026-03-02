@@ -149,3 +149,4 @@ def create_crypto_daily_silver_data(
             """)
 
     return len(dates)
+    

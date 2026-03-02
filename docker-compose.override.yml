@@ -17,6 +17,16 @@ services:
       - localstack-data:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
 
+  streamlit:
+    image: ${COMPOSE_PROJECT_NAME}/airflow:latest
+    command: streamlit run apps/streamlit/app.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/usr/local/airflow
+    depends_on:
+      - localstack
+
 volumes:
   localstack-data:
 

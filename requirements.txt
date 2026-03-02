@@ -6,4 +6,5 @@ duckdb
 pyarrow
 apache-airflow-providers-amazon==9.21.0
 airflow-provider-duckdb
+streamlit
 

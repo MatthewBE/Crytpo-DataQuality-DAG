@@ -1,13 +1,16 @@
 import pendulum
 import include.crypto_helpers as ch
 import subprocess
+import duckdb
 from airflow.exceptions import AirflowFailException
 from airflow.sdk import dag, task, get_current_context
 from airflow.models import Variable
 from pendulum import datetime
+from airflow.assets import Asset
 
 BATCH_SIZE = 20
-
+# This is an event identifier, publisehed to the asset catalog by the Gold DAG.
+GOLD_READY_ASSET = Asset("crypto/gold/daily_ready")
 
 @dag(
     start_date=datetime(2026, 2, 26),
@@ -116,7 +119,50 @@ def get_crypto_daily_data():
                 "Gold dbt validation failed.\n"
                 f"STDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}"
             )
-    
+    @task
+    def check_gold_freshness(expected_latest_date: str):
+
+        conn = duckdb.connect("/usr/local/airflow/warehouse_ddb/crypto.duckdb")
+        max_date = conn.execute(
+            "select cast(max(as_of_date) as varchar) from analytics.fct_coin_daily_metrics"
+        ).fetchone()[0]
+        conn.close()
+
+        if max_date is None or max_date < expected_latest_date:
+            raise AirflowFailException(
+                f"Gold freshness check failed: max_date={max_date}, expected>={expected_latest_date}"
+            )
+    @task(outlets=[GOLD_READY_ASSET])
+    # Creating the Data Asset for use in the Reporting DAG
+    def monitor_run_completeness(
+        dates: list[str],
+        bronze_counts: list[int],
+        silver_counts: list[int],
+    ) -> None:
+        expected = len(dates)
+        bronze_total = sum(bronze_counts or [])
+        silver_total = sum(silver_counts or [])
+
+        if bronze_total != expected:
+            raise AirflowFailException(
+                f"Bronze completeness failed: expected={expected}, processed={bronze_total}"
+            )
+
+        if silver_total != expected:
+            raise AirflowFailException(
+                f"Silver completeness failed: expected={expected}, processed={silver_total}"
+            )
+
+        print(
+            {
+                "event": "run_completeness_ok",
+                "expected_dates": expected,
+                "bronze_processed": bronze_total,
+                "silver_processed": silver_total,
+                "min_date": min(dates) if dates else None,
+                "max_date": max(dates) if dates else None,
+            }
+        )
 
     dates = build_dates()
     batches = chunk_dates(dates)
@@ -126,8 +172,8 @@ def get_crypto_daily_data():
     silver = create_silver_data.expand(batch=batches)
     silver_ok = validate_silver_data()
     gold = create_gold_data()
+    monitor = monitor_run_completeness(dates, bronze, silver)
  
-
-    bronze >> bronze_ok >> silver >> silver_ok >> gold 
+    bronze >> bronze_ok >> silver >> silver_ok >> gold >> monitor 
 
 get_crypto_daily_data()

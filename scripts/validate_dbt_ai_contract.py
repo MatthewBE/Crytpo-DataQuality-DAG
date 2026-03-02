@@ -48,7 +48,6 @@ REQUIRED_COLUMN_META = {
     "nullable",       # explicit nullability policy
     "unit",           # e.g. USD, percent, null for identifiers
     "valid_min",      # lower domain bound where relevant
-    "valid_max",      # upper domain bound where relevant
 }
 
 # Controlled vocabulary for semantic_type.

@@ -30,8 +30,8 @@ echo "Triggering one-time infrastructure DAG: crypto_setup"
 astro dev run dags trigger crypto_setup
 
 if [[ "${1:-}" == "--with-backfill" ]]; then
-  echo "Triggering backfill DAG: crypto_backfill"
-  astro dev run dags trigger crypto_backfill
+  echo "Triggering daily DAG in backfill mode: get_crypto_daily_data"
+  astro dev run dags trigger get_crypto_daily_data --conf '{"run_backfill": true, "backfill_days": 30}'
 fi
 
 echo "Done."
