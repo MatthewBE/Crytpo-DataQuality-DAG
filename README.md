@@ -8,7 +8,7 @@ I wanted to play around with the Task Flow paradigm in Airflow with a simple ing
 
 * Here is the full flow: 
 
-<img src="assets/Data Flow.svg" alt="Alt text" width="300" height="200">
+<img src="assets/Data Flow.svg" alt="Alt text" width="600" height="500">
 
 
 ## First-time local setup
