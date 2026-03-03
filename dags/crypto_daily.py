@@ -3,10 +3,9 @@ import include.crypto_helpers as ch
 import subprocess
 import duckdb
 from airflow.exceptions import AirflowFailException
-from airflow.sdk import dag, task, get_current_context
+from airflow.sdk import Asset, dag, task, get_current_context
 from airflow.models import Variable
 from pendulum import datetime
-from airflow.assets import Asset
 
 BATCH_SIZE = 20
 # This is an event identifier, publisehed to the asset catalog by the Gold DAG.
@@ -29,11 +28,10 @@ def get_crypto_daily_data():
         dag_run = ctx.get("dag_run")
         conf = dag_run.conf if dag_run and dag_run.conf else {}
 
-        run_backfill = bool(conf.get("run_backfill", False))
-        backfill_days = int(conf.get("backfill_days", 30))
-
         # Optional hard guard to prevent repeated historical loads
         backfill_complete = Variable.get("crypto_backfill_complete", default_var="false").lower() == "true"
+        run_backfill = bool(conf.get("run_backfill", not backfill_complete))
+        backfill_days = int(conf.get("backfill_days", 30))
         if run_backfill and backfill_complete:
             # choose one behavior: skip to daily, or raise
             return [ds]  # safe fallback
@@ -83,8 +81,8 @@ def get_crypto_daily_data():
             )
 
     @task
-    def create_silver_data(batch: list[str], coin_id: str = "ethereum") -> int:
-        return ch.create_crypto_daily_silver_data(coin_id=coin_id, dates=batch)
+    def create_silver_data(dates: list[str], coin_id: str = "ethereum") -> int:
+        return ch.create_crypto_daily_silver_data(coin_id=coin_id, dates=dates)
 
     @task
     def validate_silver_data():
@@ -124,7 +122,7 @@ def get_crypto_daily_data():
 
         conn = duckdb.connect("/usr/local/airflow/warehouse_ddb/crypto.duckdb")
         max_date = conn.execute(
-            "select cast(max(as_of_date) as varchar) from analytics.fct_coin_daily_metrics"
+            "select cast(max(as_of_date) as varchar) from main_analytics.fct_coin_daily_metrics"
         ).fetchone()[0]
         conn.close()
 
@@ -137,11 +135,11 @@ def get_crypto_daily_data():
     def monitor_run_completeness(
         dates: list[str],
         bronze_counts: list[int],
-        silver_counts: list[int],
+        silver_count: int,
     ) -> None:
         expected = len(dates)
         bronze_total = sum(bronze_counts or [])
-        silver_total = sum(silver_counts or [])
+        silver_total = silver_count or 0
 
         if bronze_total != expected:
             raise AirflowFailException(
@@ -163,13 +161,16 @@ def get_crypto_daily_data():
                 "max_date": max(dates) if dates else None,
             }
         )
+        # Mark first successful historical run so future scheduled runs stay daily-only.
+        if expected > 1:
+            Variable.set("crypto_backfill_complete", "true")
 
     dates = build_dates()
     batches = chunk_dates(dates)
     bronze = ingest_batch.expand(batch=batches)
 
     bronze_ok = validate_bronze_data()
-    silver = create_silver_data.expand(batch=batches)
+    silver = create_silver_data(dates)
     silver_ok = validate_silver_data()
     gold = create_gold_data()
     monitor = monitor_run_completeness(dates, bronze, silver)

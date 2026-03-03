@@ -1,4 +1,20 @@
 services:
+  scheduler:
+    volumes:
+      - warehouse_ddb_data:/usr/local/airflow/warehouse_ddb
+
+  dag-processor:
+    volumes:
+      - warehouse_ddb_data:/usr/local/airflow/warehouse_ddb
+
+  api-server:
+    volumes:
+      - warehouse_ddb_data:/usr/local/airflow/warehouse_ddb
+
+  triggerer:
+    volumes:
+      - warehouse_ddb_data:/usr/local/airflow/warehouse_ddb
+
   localstack:
     image: localstack/localstack:latest
     ports:
@@ -18,15 +34,17 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
 
   streamlit:
-    image: ${COMPOSE_PROJECT_NAME}/airflow:latest
+    image: ${COMPOSE_PROJECT_NAME:-crytpo-data-quality-dag_89a239}/airflow:latest
     command: streamlit run apps/streamlit/app.py --server.port 8501 --server.address 0.0.0.0
     ports:
       - "8501:8501"
     volumes:
       - .:/usr/local/airflow
+      - warehouse_ddb_data:/usr/local/airflow/warehouse_ddb
     depends_on:
       - localstack
 
 volumes:
   localstack-data:
+  warehouse_ddb_data:
 

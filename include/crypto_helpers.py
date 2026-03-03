@@ -144,8 +144,8 @@ def create_crypto_daily_silver_data(
                         to_json(raw.market_data) AS payload
                     FROM raw
                 )
-                TO 's3://{bucket_name}/silver/coingecko_history/coin={coin_id}/'
-                (FORMAT PARQUET, PARTITION_BY (as_of_date));
+                TO 's3://{bucket_name}/{partition_prefix}data.parquet'
+                (FORMAT PARQUET, OVERWRITE_OR_IGNORE TRUE);
             """)
 
     return len(dates)

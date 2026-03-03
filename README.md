@@ -35,6 +35,7 @@ Connections and variables for local development are defined in `airflow_settings
 
 `coingecko_api` is sourced from `AIRFLOW_CONN_COINGECKO_API` in `.env` (env-only strategy).
 The bootstrap script starts Astro, then triggers `crypto_setup` so required infra is created consistently.
+The bootstrap script also resets `crypto_backfill_complete=false` so restarts begin in backfill-ready mode.
 With `--with-backfill`, the script triggers `get_crypto_daily_data` in backfill mode via DAG conf:
 `{"run_backfill": true, "backfill_days": 30}`.
 
@@ -42,6 +43,8 @@ With `--with-backfill`, the script triggers `get_crypto_daily_data` in backfill 
 
 - `profiles.yml` is stored at the repo root and mounted to `/usr/local/airflow/profiles.yml` in Astro containers.
 - `DBT_PROFILES_DIR` is set in `Dockerfile` so dbt resolves profiles inside the container (no host `~/.dbt` required).
+- Canonical Gold relation name in DuckDB: `main_analytics.fct_coin_daily_metrics`
+- Gold incremental strategy uses `delete+insert` (adapter-supported for this DuckDB/dbt setup). `merge` is not supported in this runtime.
 
 ## Streamlit service
 

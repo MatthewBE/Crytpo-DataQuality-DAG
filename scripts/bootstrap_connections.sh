@@ -29,6 +29,9 @@ fi
 echo "Triggering one-time infrastructure DAG: crypto_setup"
 astro dev run dags trigger crypto_setup
 
+echo "Resetting backfill guard variable for fresh project runs"
+astro dev run variables set crypto_backfill_complete false
+
 if [[ "${1:-}" == "--with-backfill" ]]; then
   echo "Triggering daily DAG in backfill mode: get_crypto_daily_data"
   astro dev run dags trigger get_crypto_daily_data --conf '{"run_backfill": true, "backfill_days": 30}'
