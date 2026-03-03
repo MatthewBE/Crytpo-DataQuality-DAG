@@ -1,5 +1,14 @@
 # Crytpo-DataQuality-DAG
-Downloading from the Coingecko API, into Bronze /Silver Moto S3 mock and loading into DuckDB. All while using the updated Task Flow and Astronomer Docker image.
+
+I wanted to play around with the Task Flow paradigm in Airflow with a simple ingestion and WAP pattern using the Astronomer Airflow Docker image. The source was a simple pull from the Coingecko API for ETH price data and the intermidate tables were donw using LocalStack, which emulates S3 Buckets from AWS.
+
+* I chose LocalStack for its persistance across loads. 
+* For simplicity on the final Gold Layer, I chose an on-disk DuckDB database for a quick analytics back end that I could point a Streamlit app at.
+* I also wanted to not only leverage Data Build Tool for data quality  
+
+* Here is the full flow: 
+
+![Data Flow](assets/Data Flow.svg)
 
 ## First-time local setup
 
